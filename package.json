@@ -1,0 +1,28 @@
+{
+  "name": "x-invoice",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "build": "tsc",
+    "bar": "npm run build && node dist/index.js",
+    "setup": "npm install && cp .env.example .env && npm run build"
+  },
+  "type": "module",
+  "devDependencies": {
+    "@types/node": "^22.1.0",
+    "typescript": "^5.5.4"
+  },
+  "bin": {
+    "google-maps-scraper": "./dist/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/robert-kratz/lecture-recorder.git"
+  },
+  "keywords": [],
+  "author": "Robert Julian Kratz",
+  "license": "ISC",
+  "dependencies": {
+    "fs": "^0.0.1-security"
+  }
+}
