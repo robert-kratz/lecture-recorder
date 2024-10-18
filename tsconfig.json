@@ -5,6 +5,8 @@
     "outDir": "./dist",
     "moduleResolution": "node",
     "esModuleInterop": true,
+    "maxNodeModuleJsDepth": 20,
+    "skipLibCheck": true,
     "strict": true
   },
   "include": ["src/**/*"]

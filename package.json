@@ -23,6 +23,13 @@
   "author": "Robert Julian Kratz",
   "license": "ISC",
   "dependencies": {
-    "fs": "^0.0.1-security"
+    "child_process": "^1.0.2",
+    "dotenv": "^16.4.5",
+    "ffmpeg-static": "^5.2.0",
+    "fs": "^0.0.1-security",
+    "obs-websocket-js": "^5.0.6",
+    "ora": "^8.0.1",
+    "puppeteer": "^22.15.0",
+    "type-fest": "^2.19.0"
   }
 }
