@@ -1,108 +1,142 @@
-import puppeteer from 'puppeteer';
+import axios from 'axios';
+import inquirer from 'inquirer';
+import ora from 'ora';
+import fs from 'fs';
+import path from 'path';
+import { exec } from 'child_process';
 
-import authenticate from './authentication.js';
-import { OBSRecorder } from './capture/recorder.js';
-import takeScreenshot, {
-    getVideoDurationFromIframe,
-    goToNextPage,
-    hasVideoIframe,
-    isLectureOver,
-    waitForPageLoad,
-} from './controller.js';
-import { ProgressController } from './utils/progressController.js';
+let finalFileName = process.argv[2] || `output-${Date.now()}`;
 
-const recorder: OBSRecorder = new OBSRecorder();
-const progressController: ProgressController = new ProgressController();
+// Ask for inputs: auth token and video URL
+async function getUserInputs() {
+    const { authToken, videoUrl } = await inquirer.prompt([
+        {
+            type: 'input',
+            name: 'authToken',
+            message: 'Please enter your authentication token (in the lw_tokens format):',
+        },
+        {
+            type: 'input',
+            name: 'videoUrl',
+            message: 'Please enter the Wistia video URL:',
+        },
+    ]);
+    return { authToken, videoUrl };
+}
 
-const TIMEBUFFER = 1500;
+// Function to download video snippets
+async function downloadSnippet(
+    url: string,
+    authToken: string,
+    segmentNumber: number,
+    tempDir: string
+): Promise<string | null> {
+    const spinner = ora(`Downloading segment seg-${segmentNumber}-v1-a1.ts...`).start();
+    const segmentUrl = url.replace(/seg-\d+-v1-a1\.ts/, `seg-${segmentNumber}-v1-a1.ts`);
+    const outputFile = path.join(tempDir, `seg-${segmentNumber}.ts`);
+
+    try {
+        const response = await axios.get(segmentUrl, {
+            responseType: 'stream',
+            headers: {
+                Authorization: `Bearer ${authToken}`,
+            },
+        });
+
+        const writer = fs.createWriteStream(outputFile);
+        response.data.pipe(writer);
+
+        return new Promise((resolve, reject) => {
+            writer.on('finish', () => {
+                spinner.succeed(`Downloaded segment seg-${segmentNumber}-v1-a1.ts (${outputFile})`);
+                resolve(outputFile);
+            });
+            writer.on('error', reject);
+        });
+    } catch (error: any) {
+        spinner.fail(`Error downloading segment seg-${segmentNumber}-v1-a1.ts`);
+        if (error.response && (error.response.status === 401 || error.response.status === 404)) {
+            return null;
+        }
+        throw error;
+    }
+}
+
+// Merge all snippets into an MP4 using ffmpeg
+function mergeSnippets(tempDir: string, outputFilePath: string) {
+    return new Promise((resolve, reject) => {
+        const inputFileList = path.join(tempDir, 'input.txt');
+        const files = fs
+            .readdirSync(tempDir)
+            .filter((file) => file.endsWith('.ts'))
+            .sort((a, b) => {
+                // Extract the segment numbers and sort them numerically
+                const numA = parseInt(a.match(/seg-(\d+)/)?.[1] || '0', 10);
+                const numB = parseInt(b.match(/seg-(\d+)/)?.[1] || '0', 10);
+                return numA - numB;
+            })
+            .map((file) => `file '${path.join(tempDir, file)}'`)
+            .join('\n');
+
+        fs.writeFileSync(inputFileList, files);
+
+        const command = `ffmpeg -f concat -safe 0 -i ${inputFileList} -c copy ${outputFilePath}`;
+        exec(command, (error) => {
+            if (error) {
+                reject(error);
+            } else {
+                resolve(outputFilePath);
+            }
+        });
+    });
+}
 
 async function main() {
     try {
-        // Launch Puppeteer
-        const browser = await puppeteer.launch({
-            headless: false,
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--window-size=1440,900', '--window-position=0,0'],
+        const { authToken, videoUrl } = await getUserInputs();
+
+        const videoId = videoUrl.match(/deliveries\/([^\/]+)\.m3u8/);
+        if (!videoId) {
+            console.error('Invalid URL format. Could not extract video ID.');
+            return;
+        }
+
+        const tempDir = fs.mkdtempSync(path.join(process.cwd(), 'temp-'));
+        let segmentNumber = 1;
+        const downloadedFiles: string[] = [];
+
+        // Download segments sequentially
+        while (true) {
+            const filePath = await downloadSnippet(videoUrl, authToken, segmentNumber, tempDir);
+            if (!filePath) break;
+            downloadedFiles.push(filePath);
+            segmentNumber++;
+        }
+
+        if (downloadedFiles.length === 0) {
+            console.log('No segments were downloaded.');
+            return;
+        }
+
+        const outputFilePath = path.join(`${process.cwd()}/output`, `${finalFileName}.mp4`);
+        console.log('Merging video segments...');
+        await mergeSnippets(tempDir, outputFilePath);
+
+        console.log(`Merged video saved to: ${outputFilePath}`);
+
+        console.log('Removing downloaded video segments...');
+        // Clean up temp files
+        fs.rm(tempDir, { recursive: true }, (error) => {
+            if (error) {
+                console.error('Error cleaning up temp files:', error);
+            }
         });
 
-        await recorder.connect();
+        ora('All done!').succeed();
 
-        let page = await browser.pages().then((pages) => pages[0]);
-
-        // Set the page viewport size
-
-        await authenticate(page);
-
-        await page.goto(
-            'https://www.math-intuition.de/path-player?courseid=lineare-algebra-1-intuition&unit=lineare-algebra-1-intuition_6204c653ab6bfUnit'
-        );
-
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-
-        let lectureEnded = false;
-        let lectureDuration = 0;
-        let currentUrl = '';
-        let currentTitle = '';
-
-        do {
-            await goToNextPage(page); //Skip to next page
-
-            await new Promise((resolve) => setTimeout(resolve, 3000));
-
-            currentUrl = page.url();
-            currentTitle = await page.title();
-            lectureEnded = await isLectureOver(page);
-
-            console.log('Current URL:', currentUrl);
-
-            let hasVideo = false;
-
-            try {
-                hasVideo = await hasVideoIframe(page);
-                console.log('Has video:', hasVideo);
-            } catch (error) {
-                console.log('Error:', error);
-            }
-
-            if (hasVideo) {
-                lectureDuration = await getVideoDurationFromIframe(page);
-                console.log(`Video duration: ${lectureDuration}`);
-
-                if (lectureDuration !== 0) {
-                    await recorder.startRecording(currentTitle);
-
-                    console.log('Started recording for', lectureDuration + TIMEBUFFER);
-
-                    //wait for lectureDuration + TIMEBUFFER
-                    await new Promise((resolve) => setTimeout(resolve, lectureDuration + TIMEBUFFER));
-
-                    await recorder.stopRecording();
-
-                    console.log('Recording stopped');
-                } else {
-                    console.error('Video duration is not a number', lectureDuration);
-                    process.exit(1);
-                }
-            } else {
-                //take screenshot
-                await takeScreenshot(page, `./output/screenshot-${progressController.getAllUrls().length}.png`);
-            }
-
-            progressController.addUrl(currentUrl);
-
-            console.log('Added URL:', currentUrl);
-
-            if (lectureEnded) {
-                console.log('Lecture ended');
-            } else {
-                console.log('GoToNextPage');
-            }
-        } while (!lectureEnded);
-
-        // Close the browser
-        await browser.close();
-        console.log('Browser closed');
-    } catch (error) {
-        console.error('Error:', error);
+        process.exit(0);
+    } catch (error: any) {
+        console.error('An error occurred:', error.message);
     }
 }
 

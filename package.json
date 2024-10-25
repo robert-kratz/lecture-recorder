@@ -1,35 +1,32 @@
 {
-  "name": "x-invoice",
-  "version": "1.0.0",
-  "description": "",
-  "scripts": {
-    "build": "tsc",
-    "bar": "npm run build && node dist/index.js",
-    "setup": "npm install && cp .env.example .env && npm run build"
-  },
-  "type": "module",
-  "devDependencies": {
-    "@types/node": "^22.1.0",
-    "typescript": "^5.5.4"
-  },
-  "bin": {
-    "google-maps-scraper": "./dist/index.js"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/robert-kratz/lecture-recorder.git"
-  },
-  "keywords": [],
-  "author": "Robert Julian Kratz",
-  "license": "ISC",
-  "dependencies": {
-    "child_process": "^1.0.2",
-    "dotenv": "^16.4.5",
-    "ffmpeg-static": "^5.2.0",
-    "fs": "^0.0.1-security",
-    "obs-websocket-js": "^5.0.6",
-    "ora": "^8.0.1",
-    "puppeteer": "^22.15.0",
-    "type-fest": "^2.19.0"
-  }
+    "dependencies": {
+        "axios": "^1.7.7",
+        "chalk": "^5.3.0",
+        "fs": "^0.0.1-security",
+        "inquirer": "^12.0.0",
+        "ora": "^8.1.0"
+    },
+    "name": "lecture-recorder",
+    "version": "1.0.0",
+    "description": "",
+    "main": "dist/index.js",
+    "type": "module",
+    "devDependencies": {
+        "@types/node": "^22.1.0",
+        "typescript": "^5.5.4"
+    },
+    "bin": {
+        "google-maps-scraper": "./dist/index.js"
+    },
+    "scripts": {
+        "build": "tsc",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/robert-kratz/lecture-recorder"
+    },
+    "keywords": [],
+    "author": "Robert Julian Kratz",
+    "license": "ISC"
 }

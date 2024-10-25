@@ -6,31 +6,33 @@ This tool provides an alternative to record videos of lectures.
 
 ### Requirements
 
-- Node.js (https://nodejs.org/)
-- FFmpeg (https://ffmpeg.org/)
-- Puppeteer (https://pptr.dev/)
-- npm (https://www.npmjs.com/)
+-   Node.js (https://nodejs.org/)
+-   FFmpeg (https://ffmpeg.org/)
+-   Puppeteer (https://pptr.dev/)
+-   npm (https://www.npmjs.com/)
 
 ### Installation
 
 1. Clone the repository
 
-   ```bash
-   $ git clone https://github.com/robert-kratz/lecture-recorder.git
-   ```
+    ```bash
+    $ git clone https://github.com/robert-kratz/lecture-recorder.git
+    ```
 
-   Enter the directory
+    Enter the directory
 
-   ```bash
-   $ cd lecture-recorder
-   ```
+    ```bash
+    $ cd lecture-recorder
+    ```
 
-2. Enter credentials
+2. Install the dependencies
 
-   Plese add your credentials to the `.env.example` file and run the following command:
+    ```bash
+    $ npm install
+    ```
 
-   ```bash
-   $ npm run setup
-   ```
+    3. Run the tool
 
-Developed by Robert Kratz, Website: [rjks.us](https://rjks.us)
+    ```bash
+    $ npm run build && node ./dist/index.js [FILE_NAME]
+    ```
